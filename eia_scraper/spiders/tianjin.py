@@ -7,9 +7,17 @@ from datetime import timedelta
 from datetime import datetime
 from urllib.request import urlopen
 from eia_scraper.items import EiaScraperItem
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 
-        
-TIME_THRESHOLD = 21 # 15 days for now. 
+MAIL_HOST = 'smtp.126.com'
+MAIL_USER = 'simonfengqy'
+MAIL_PASS = '******'
+SENDER = 'simonfengqy@126.com'
+RECEIVERS = ['simonfengqy@gmail.com', '1102779072@qq.com']        
+TIME_THRESHOLD = 15 # Can be adjusted. 
 
 class TianjinSpider(scrapy.Spider):
   name = 'tianjin'
@@ -47,28 +55,67 @@ class TianjinSpider(scrapy.Spider):
         for kwd in self.keywords:
           if re.search(kwd, item['content']) is not None:            
             item['valid'] = True
-            #urls_to_send = urls_to_send + title + ' (' + url + ')' + '; '
-            urls_to_send += url +'; '
+            urls_to_send = urls_to_send + title + ' (' + abs_url + ')' + '; ' + '\n'            
             break            
       else:
         exceeded_time_limit = True
         item['valid'] = False
       yield item    
     
-    #yes_or_no = '有'
-    yes_or_no = 'Yes'
+    yes_or_no = '有'    
     if urls_to_send == '':
-      # urls_to_send = '本次无新链接。'
-      urls_to_send = 'No new links.'
-      yes_or_no = 'No'
-    mailer = MailSender()
-    # mailer.send(to=["simonfengqy@126.com"], subject="天津爬虫结果： " + yes_or_no, body=urls_to_send, 
-    mailer.send(to=["simonfengqy@126.com"], subject="Tianjin spider results: " + yes_or_no, body=urls_to_send, 
-      cc=["simonfengqy@gmail.com"])
+      urls_to_send = '本次无新链接。'      
+      yes_or_no = '无'    
+    self.send_email('天津爬虫结果： ' + yes_or_no, urls_to_send)
     
     if not exceeded_time_limit:
       page_links = response.css('div[id="NPage"]')      
       next_page = page_links.xpath('//a[contains(text(), ">")]/@href').get()
       if next_page is not None:
         yield response.follow(next_page, self.parse)
+        
+        
+  def send_email(self, email_title, email_body):
+    message = MIMEMultipart()
+    message['From'] = SENDER
+    message['To'] = RECEIVERS[0]
+    message['Subject'] = email_title
+    #推荐使用html格式的正文内容，这样比较灵活，可以附加图片地址，调整格式等
+    # with open('abc.html','r') as f:
+        # content = f.read()
+    #设置html格式参数
+    # part1 = MIMEText(content,'html','utf-8')
+    part1 = MIMEText(email_body,'plain','utf-8')
+    #添加一个txt文本附件
+    '''
+    with open('abc.txt','r')as h:
+        content2 = h.read()
+    #设置txt参数
+    part2 = MIMEText(content2,'plain','utf-8')
+    #附件设置内容类型，方便起见，设置为二进制流
+    part2['Content-Type'] = 'application/octet-stream'
+    #设置附件头，添加文件名
+    part2['Content-Disposition'] = 'attachment;filename="abc.txt"'
+    '''
+    #添加照片附件
+    # with open('1.png','rb')as fp:
+        # picture = MIMEImage(fp.read())        
+        # picture['Content-Type'] = 'application/octet-stream'
+        # picture['Content-Disposition'] = 'attachment;filename="1.png"'
+    #将内容附加到邮件主体中
+    message.attach(part1)
+    # message.attach(part2)
+    # message.attach(picture)
+
+    #登录并发送
+    try:
+      smtpObj = smtplib.SMTP()
+      smtpObj.connect(MAIL_HOST,25)
+      smtpObj.login(MAIL_USER,MAIL_PASS)
+      smtpObj.sendmail(
+          SENDER,RECEIVERS,message.as_string())
+      print('success')
+      smtpObj.quit()
+    except smtplib.SMTPException as e:
+      print('error', e)
     
