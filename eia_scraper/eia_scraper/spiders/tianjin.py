@@ -59,12 +59,12 @@ class TianjinSpider(scrapy.Spider):
             item['valid'] = True           
             eliminated = True
             for e_kwd in self.eliminated_kwd:
-            	if re.search(e_kwd, item['content']) is not None:
-            		eliminated = False
-            		break
+              if re.search(e_kwd, item['content']) is not None:
+            	  eliminated = False
+            	  break
 
             if eliminated is True:
-            	urls_to_send = urls_to_send + '非缩水：' + title + ' (' + abs_url + ')' + '; ' + '\n'
+              urls_to_send = urls_to_send + '非缩水：' + title + ' (' + abs_url + ')' + '; ' + '\n'
               item['path'] = 'special_' + item['path']
             else:
               urls_to_send = urls_to_send + '缩水版：' + title + ' (' + abs_url + ')' + '; ' + '\n'       
