@@ -25,6 +25,7 @@ class TianjinSpider(scrapy.Spider):
   path = './scraped_data/tianjin/'
   keywords = {'听证','报名', '环境影响报告', '环评', '用海批复', '用海申请', '用海规划', '海砂',  
     '开采', '功能区域区划', '海域使用权', '公报', '填海', '处罚', '罚款'}
+  eliminated_kwd = {'射线','放射'}
   
   def parse(self, response):
     exceeded_time_limit = False
@@ -46,8 +47,8 @@ class TianjinSpider(scrapy.Spider):
       title = url_selector.css('*::text').get()
       if not os.path.exists(self.path):
         os.makedirs(self.path)
-      item['path'] = self.path + date + '_' + title
-            
+      item['path'] = self.path + date + '_' + title  
+        
       if current_datetime <= datetime_obj + timedelta(days=TIME_THRESHOLD + 1):          
         abs_url = response.urljoin(url)
         item['content'] = urlopen(abs_url).read().decode("utf-8") 
@@ -55,7 +56,18 @@ class TianjinSpider(scrapy.Spider):
         for kwd in self.keywords:
           if re.search(kwd, item['content']) is not None:            
             item['valid'] = True
-            urls_to_send = urls_to_send + title + ' (' + abs_url + ')' + '; ' + '\n'            
+            eliminated = True
+            # check if the posts is out of interests
+            for e_kwd in self.eliminated_kwd:
+              if re.search(e_kwd, item['content']) is not None:
+                eliminated = False
+                break
+                
+            if eliminated is True:
+              urls_to_send = urls_to_send + '非缩水：' + title + ' (' + abs_url + ')' + '; ' + '\n'
+              item['path'] = 'special_' + item['path']
+            else:
+              urls_to_send = urls_to_send + '缩水版：' + title + ' (' + abs_url + ')' + '; ' + '\n'            
             break            
       else:
         exceeded_time_limit = True
